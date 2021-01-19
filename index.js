@@ -4,116 +4,77 @@ const puppeteer = require('puppeteer');
 const axios  = require('axios');
 require('dotenv').config();
 
+const userDataDir = process.argv[2] || 'PrivateChromeSessions';
 (async () => {
-  const browser = await puppeteer.launch({headless: false, defaultViewport: {width: 1280, height: 720}, userDataDir: 'PrivateChromeSessions'});
+  const browser = await puppeteer.launch({headless: true, defaultViewport: {width: 1280, height: 720}, userDataDir: userDataDir});
   const page = await browser.newPage();
-  await page.goto('https://stripcode.dev/ranked', {waitUntil: 'networkidle0', timeout: 60000})
+  await page.goto('https://stripcode.dev/ranked', {waitUntil: 'networkidle0'})
 
   // check if connected
   if (page.url().includes("github.com")) {
-    const shownBrowser = await puppeteer.launch({headless: false, defaultViewport: null, userDataDir: 'PrivateChromeSessions'});
+    const shownBrowser = await puppeteer.launch({headless: false, defaultViewport: null, userDataDir: userDataDir});
     const shownPage = await shownBrowser.newPage();
-    await shownPage.goto('https://stripcode.dev/ranked', {waitUntil: 'networkidle0', timeout: 60000});
+    await shownPage.goto('https://stripcode.dev/ranked', {waitUntil: 'networkidle0'});
     console.log("you need to connect to your github account")
-    // await shownPage.waitForNavigation({waitUntil: 'networkidle0', timeout: 0})
     await page.waitForSelector('.text-oblack', {timeout: 0})
-    shownBrowser.close()
+    console.log("connected to github")
+    await shownBrowser.close()
     await page.reload({waitUntil: 'networkidle0'})
   }
-  console.log("connected to github")
 
-  // while (true) {
-  await page.waitForTimeout(1000)
-
-  let repolist = await page.$$eval('[class*=text-bblack]', el => el.map(el => el.textContent))
-  let file = await page.$eval('h1[class*=my-8]', el => el.textContent)
-  console.log(file, repolist)
-
-  let reposfiles = {}
-  let branch = {}
-  let fetch_default_branch = []
-  let fetch_repofiles = []
-  for ([index, repo] of repolist.entries()) {
-    let repocache = await dbrepo.findOne({repo: repo})
-    if (repocache) { // if repo in db
-      reposfiles[index] = repocache.files
-    } else {
-      fetch_default_branch.push(
-        axios.get(`https://api.github.com/repos/${repo}`, {headers: {'Authorization': 'token '+process.env.token}})
-        .then(res => {
-          console.log("branch", res.data.full_name, res.data.default_branch)
-          branch[repo] = res.data.default_branch
-          fetch_repofiles.push(
-            axios.get(`https://api.github.com/repos/${repo}/git/trees/${branch[repo]}?recursive=true`, {headers: {'Authorization': 'token '+process.env.token}})
-          )
-        })
-      )
-    }
-  }
-  await Promise.all(fetch_default_branch)
-  await Promise.all(fetch_repofiles)
-    .then(ress => {
-      for ([index, res] of ress.entries()) {
-        repofiles = res.data.tree.map(file => file.path.replace(/^.*\//, ""))
-        reposfiles[index] = repofiles
-        // console.log(reposfiles, repofiles, index)
-        console.log(ress[0].data, "\n", ress[1].data)
-        console.log(repolist[index], res.data.url)
-        dbrepo.insert({repo: repolist[index], files: repofiles})
-      }
-    })
-
-  // console.log(repolist, reposfiles)
-  for (repo in repolist) {
-    if (reposfiles[repo].indexOf(file) != -1) {
-      let isfound = repo
-      break
-    }
-  }
-  repolistel = await page.$$('[class*=text-bblack]')
-  console.log("isfound : ", typeof isfound)
-  if (typeof isfound != 'undefined') {
-    console.log("in if statement")
-    console.log(isfound)
+  async function select(repo) {
+    repofound = true
+    let repolistel = await page.$$('[class*=text-bblack]')
     for (repoel of repolistel) {
-      if (await repoel.evaluate(el => el.textContent) == isfound) {
+      if (await repoel.evaluate(el => el.textContent) == repo) {
         await repoel.click()
       }
     }
-  } else {
-    repolistel[0].click()
   }
-  // for (repo of repolist) {
-  //   let repocache = await dbrepo.findOne({repo: repo})
-  //   if (repocache) { // if repo in db
-  //     let repofiles = repocache.files
-  //     if (repofiles.indexOf(file) != -1) {
-  //       console.log(file, "for", repo, "(db)")
-  //       await select(repo)
-  //     }
-  //   } else {
-  //     let mainres = await axios.get(`https://api.github.com/repos/${repo}`, {auth: {username: "process.env.github_username", password: "process.env.github_password"}})
-  //     console.log(repo, mainres.data.default_branch)
-  //     let res = await axios.get(`https://api.github.com/repos/${repo}/git/trees/${mainres.data.default_branch}?recursive=true`, {auth: {username: "process.env.github_username", password: "process.env.github_password"}})
-  //     repofiles = res.data.tree.map(file => file.path.replace(/^.*\//, ""))
-  //     // console.log(repofiles.indexOf(file))
-  //     dbrepo.insert({repo: repo, files: repofiles})
-  //     if (repofiles.indexOf(file) != -1) {
-  //       console.log(file, "for", repo, "(from api.github)")
-  //       await select(repo)
-  //       // dbrepo.insert({repo: repo, files: repofiles})
-  //     }
-  //   }
-  //   console.log("break")
-  //   if (repofound) { break; }
-  // }
-  console.log(" at click nextQuestion")
-  // await page.click('[phx-click="nextQuestion"]')
-  // }
+
+  while (true) {
+    console.log("---------------------------------------")
+    await page.waitForSelector('[class*=text-bblack]')
+    await page.waitForSelector('h1[class*=my-8]')
+
+    let repolist = await page.$$eval('[class*=text-bblack]', el => el.map(el => el.textContent))
+    let file = await page.$eval('h1[class*=my-8]', el => el.textContent)
+    console.log("file :", file)
+
+    for (repo of repolist) {
+      let repocache = await dbrepo.findOne({repo: repo})
+      if (repocache) { // if repo in db
+        let repofiles = repocache.files
+        if (repofiles.indexOf(file) != -1) {
+          console.log(repo, "from DB")
+          await select(repo)
+          break
+          console.log("after break")
+        }
+      } else {
+        let mainres = await axios.get(`https://api.github.com/repos/${repo}`, {headers: {'Authorization': 'token '+process.env.token}})
+        let res = await axios.get(`https://api.github.com/repos/${repo}/git/trees/${mainres.data.default_branch}?recursive=true`, {headers: {'Authorization': 'token '+process.env.token}})
+        repofiles = res.data.tree.map(file => file.path.replace(/^.*\//, ""))
+        dbrepo.insert({repo: repo, files: repofiles})
+        if (repofiles.indexOf(file) != -1) {
+          console.log("repo :", repo, "from github API")
+          await select(repo)
+          break
+          console.log("after break")
+        }
+      }
+
+    }
+
+    await page.waitForSelector('[phx-click="nextQuestion"]', {timeout: 1000})
+    .then(el => el.click())
+    .catch(async e => {
+      console.error(e)
+      select(repolist[0])
+      await page.waitForSelector('[phx-click="nextQuestion"]', {timeout: 2000})
+      .then(el => el.click())
+      .catch(async e => await page.reload({waitUntil: 'networkidle0'}))
+    })
+    await page.waitForTimeout(500)
+  }
 })();
-
-
-// const pendingXHR = new PendingXHR(page);
-// await pendingXHR.waitForAllXhrFinished();
-
-
