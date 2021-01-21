@@ -30,7 +30,7 @@ const userDataDir = process.argv[2] || 'PrivateChromeSessions';
     let content = await page.$eval('[id="main-code-block"]', el => el.textContent)
     console.log(rightrepo, content.length)
     // await answers.update({ file: file }, { $set: { content: content } })
-    await answers.insert({file: file, repo: rightrepo, content})
+    await answers.insert({file: file, repo: rightrepo, content: content, repolist: repolist})
     await page.click('[phx-click="nextQuestion"]')
     await page.waitForTimeout(500)
   }
