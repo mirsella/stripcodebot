@@ -1,9 +1,8 @@
 const fs = require('fs');
 const { exec } = require("child_process");
-const {exit} = require('process');
 const db = require('monk')('localhost/stripcode');
-const answersdb = db.get('answers 4');
-const answersnewdb = db.get('answers 5');
+const answersdb = db.get('answers 6');
+const answersnewdb = db.get('answers 7');
 const puppeteer = require('puppeteer');
 
 const userDataDir = process.argv[2] || 'PrivateChromeSessions';
@@ -37,6 +36,7 @@ const userDataDir = process.argv[2] || 'PrivateChromeSessions';
     answersdb.insert({name: "stats"})
   }
 
+  let lastFile
   while (true) {
     fs.existsSync('stop') && process.exit()
     console.log("---------------------------------------")
@@ -48,6 +48,14 @@ const userDataDir = process.argv[2] || 'PrivateChromeSessions';
     let content = await page.$eval('[id="main-code-block"]', el => el.textContent)
     console.log(file)
     console.log(repolist)
+
+    if (lastFile === file) {
+      await answersdb.update({name: "stats"}, {$inc: {skipbecausesame: 1}})
+      await page.click('[phx-click="nextQuestion"]')
+        .catch(async e => await page.reload({waitUntil: 'networkidle0'}))
+      await page.waitForTimeout(2000)
+      continue
+    }
 
     let isbreak = false
     answers = await answersdb.find({file: file, repolist: repolist, content: content})
