@@ -51,9 +51,9 @@ const userDataDir = process.argv[2] || 'PrivateChromeSessions';
 
     if (lastFile === file) {
       await answersdb.update({name: "stats"}, {$inc: {skipbecausesame: 1}})
-      //await page.click('[phx-click="nextQuestion"]')
-      //  .catch(async e => await page.reload({waitUntil: 'networkidle0'}))
-      //await page.waitForTimeout(2000)
+      await page.click('[phx-click="nextQuestion"]')
+       .catch(async e => await page.reload({waitUntil: 'networkidle0'}))
+      await page.waitForTimeout(2000)
       continue
     }
 
